@@ -85,3 +85,33 @@ df_summary = pd.DataFrame(summary_data).T
 display(df_summary)
 
 
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Bestimmung der exakten Spaltennamen im Datensatz
+# Wir suchen nach Spalten, die 'anxiety', 'headache' und 'loneliness' enthalten
+anxiety_col = [col for col in df_filtered.columns if 'anxiety' in col.lower()][0]
+headache_col = [col for col in df_filtered.columns if 'headache' in col.lower()][0]
+loneliness_col = [col for col in df_filtered.columns if 'loneliness' in col.lower()][0]
+gender_col = [col for col in df_filtered.columns if 'gender' in col.lower()][0]
+
+# 1. Tabellarische Übersicht (Mittelwerte und Standardabweichungen nach Geschlecht)
+grouped_stats = df_filtered.groupby(gender_col)[[anxiety_col, headache_col, loneliness_col]].agg(['mean', 'std']).round(3)
+print("Tabellarischer Vergleich (Mittelwert & Standardabweichung):")
+display(grouped_stats)
+
+# 2. Daten für das Diagramm vorbereiten
+df_melted = df_filtered.melt(id_vars=[gender_col], value_vars=[anxiety_col, headache_col, loneliness_col],
+                             var_name='Indikator', value_name='Ausprägung')
+
+# 3. Diagramm erstellen
+plt.figure(figsize=(12, 6))
+sns.barplot(x='Indikator', y='Ausprägung', hue=gender_col, data=df_melted, palette='muted', errorbar='ci')
+plt.title('Vergleich von Stressindikatoren zwischen weiblichen und männlichen Studierenden (95% CI)')
+plt.ylabel('Durchschnittliche Ausprägung')
+plt.xlabel('Stressindikator')
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+plt.tight_layout()
+plt.show()
+
+
