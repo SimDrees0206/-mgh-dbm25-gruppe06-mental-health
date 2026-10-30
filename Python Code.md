@@ -33,7 +33,7 @@ print(df_filtered[gender_column].value_counts(dropna=False))
 display(df_filtered.head())
      
 
-# Selektiere nur numerische Spalten für die statistische Auswertung
+Selektiere nur numerische Spalten für die statistische Auswertung
 numeric_cols = df_filtered.select_dtypes(include=[np.number]).columns
 
 summary_data = {}
@@ -80,7 +80,7 @@ for col in numeric_cols:
         "Konfidenzniveau (95%)": margin_of_error
     }
 
-# In ein DataFrame für eine übersichtliche Darstellung umwandeln
+In ein DataFrame für eine übersichtliche Darstellung umwandeln
 df_summary = pd.DataFrame(summary_data).T
 display(df_summary)
 
@@ -88,29 +88,58 @@ display(df_summary)
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Bestimmung der exakten Spaltennamen im Datensatz
-# Wir suchen nach Spalten, die 'anxiety', 'headache' und 'loneliness' enthalten
+Bestimmung der exakten Spaltennamen im Datensatz
+Wir suchen nach Spalten, die 'anxiety', 'headache' und 'loneliness' enthalten
 anxiety_col = [col for col in df_filtered.columns if 'anxiety' in col.lower()][0]
 headache_col = [col for col in df_filtered.columns if 'headache' in col.lower()][0]
 loneliness_col = [col for col in df_filtered.columns if 'loneliness' in col.lower()][0]
 gender_col = [col for col in df_filtered.columns if 'gender' in col.lower()][0]
 
-# 1. Tabellarische Übersicht (Mittelwerte und Standardabweichungen nach Geschlecht)
+1. Tabellarische Übersicht (Mittelwerte und Standardabweichungen nach Geschlecht)
 grouped_stats = df_filtered.groupby(gender_col)[[anxiety_col, headache_col, loneliness_col]].agg(['mean', 'std']).round(3)
 print("Tabellarischer Vergleich (Mittelwert & Standardabweichung):")
 display(grouped_stats)
 
-# 2. Daten für das Diagramm vorbereiten
+2. Daten für das Diagramm vorbereiten
 df_melted = df_filtered.melt(id_vars=[gender_col], value_vars=[anxiety_col, headache_col, loneliness_col],
                              var_name='Indikator', value_name='Ausprägung')
 
-# 3. Diagramm erstellen
+3. Diagramm erstellen
 plt.figure(figsize=(12, 6))
 sns.barplot(x='Indikator', y='Ausprägung', hue=gender_col, data=df_melted, palette='muted', errorbar='ci')
 plt.title('Vergleich von Stressindikatoren zwischen weiblichen und männlichen Studierenden (95% CI)')
 plt.ylabel('Durchschnittliche Ausprägung')
 plt.xlabel('Stressindikator')
 plt.grid(axis='y', linestyle='--', alpha=0.7)
+plt.tight_layout()
+plt.show()
+
+
+Identifikation relevanter Spalten
+Häuslich/Sozial: family_conflicts, peer_pressure
+Universitär: academic_conflicts, study_load, class_attendance
+Allgemeines Stressempfinden: stress_experience
+stress_exp_col = [col for col in df_filtered.columns if 'stress_experience' in col.lower()][0]
+
+Wir wählen repräsentative Variablen aus
+home_env_cols = [col for col in df_filtered.columns if 'family' in col.lower() or 'home' in col.lower()]
+uni_env_cols = [col for col in df_filtered.columns if 'academic' in col.lower() or 'study' in col.lower() or 'class' in col.lower()]
+
+all_env_cols = home_env_cols + uni_env_cols
+
+1. Korrelationsmatrix mit dem allgemeinen Stressempfinden
+correlations = df_filtered[all_env_cols + [stress_exp_col]].corr()[stress_exp_col].drop(stress_exp_col).to_frame()
+correlations.columns = ['Korrelation mit allgemeinem Stress']
+correlations = correlations.sort_values(by='Korrelation mit allgemeinem Stress', ascending=False)
+
+print("Einfluss der Umfelder auf das Stressempfinden (Korrelationskoeffizienten):")
+display(correlations.round(3))
+
+2. Diagramm erstellen
+plt.figure(figsize=(10, 6))
+sns.heatmap(df_filtered[all_env_cols + [stress_exp_col]].corr()[[stress_exp_col]].sort_values(by=stress_exp_col, ascending=False),
+            annot=True, cmap='coolwarm', vmin=-1, vmax=1, fmt=".3f")
+plt.title('Korrelation von häuslichen & universitären Faktoren mit allgemeinem Stress')
 plt.tight_layout()
 plt.show()
 
