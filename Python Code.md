@@ -1,39 +1,37 @@
 import pandas as pd
 import numpy as np
 import scipy.stats as stats
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.linear_model import LinearRegression
+from sklearn.feature_selection import f_regression
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
 
-Direktes Laden der CSV-Datei von GitHub
 file_path = 'https://raw.githubusercontent.com/SimDrees0206/-mgh-dbm25-gruppe06-mental-health/refs/heads/main/mental_health_raw_data.csv'
 
-Daten laden
 try:
     df = pd.read_csv(file_path)
     print("Daten erfolgreich direkt von GitHub geladen!")
 except Exception as e:
     print(f"Fehler beim Laden der Datei von GitHub: {e}")
 
-Filtern auf die Altersgruppe 18-22 (inklusive 18 und 22)
 age_column = [col for col in df.columns if 'age' in col.lower()][0]
 df_filtered = df[(df[age_column] >= 18) & (df[age_column] <= 22)].copy()
 
 print(f"Anzahl der Datensätze nach Filterung (18-22 Jahre): {len(df_filtered)}")
 display(df_filtered.head())
 
-
-Identifizieren der Gender-Spalte
 gender_column = [col for col in df_filtered.columns if 'gender' in col.lower()][0]
 
-Mapping anwenden: 0 zu 'M' und 1 zu 'F'
-Wir konvertieren die Spalte zuerst in numerische Werte, falls sie als String vorliegen
 df_filtered[gender_column] = pd.to_numeric(df_filtered[gender_column], errors='coerce')
 df_filtered[gender_column] = df_filtered[gender_column].map({0: 'M', 1: 'F'})
 
 print("Verteilung des Geschlechts nach der Anpassung:")
 print(df_filtered[gender_column].value_counts(dropna=False))
 display(df_filtered.head())
-     
 
-Selektiere nur numerische Spalten für die statistische Auswertung
 numeric_cols = df_filtered.select_dtypes(include=[np.number]).columns
 
 summary_data = {}
@@ -48,7 +46,6 @@ for col in numeric_cols:
     mean_val = col_data.mean()
     median_val = col_data.median()
 
-    # Modus berechnen
     mode_result = col_data.mode()
     mode_val = mode_result.iloc[0] if not mode_result.empty else np.nan
 
@@ -58,11 +55,9 @@ for col in numeric_cols:
     range_val = max_val - min_val
     sum_val = col_data.sum()
 
-    # 95% Konfidenzintervall / Konfidenzniveau (Margin of Error)
     if n > 1 and std_val > 0:
-        sem = stats.sem(col_data)  # Standardfehler des Mittelwerts
+        sem = stats.sem(col_data)
         confidence_level = 0.95
-        # t-Verteilung für kleinere Stichproben, Normalverteilung für große
         margin_of_error = sem * stats.t.ppf((1 + confidence_level) / 2, n - 1)
     else:
         margin_of_error = np.nan
@@ -80,54 +75,40 @@ for col in numeric_cols:
         "Konfidenzniveau (95%)": margin_of_error
     }
 
-In ein DataFrame für eine übersichtliche Darstellung umwandeln
 df_summary = pd.DataFrame(summary_data).T
 display(df_summary)
 
-
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-Bestimmung der exakten Spaltennamen im Datensatz
-Wir suchen nach Spalten, die 'anxiety', 'headache' und 'loneliness' enthalten
 anxiety_col = [col for col in df_filtered.columns if 'anxiety' in col.lower()][0]
 headache_col = [col for col in df_filtered.columns if 'headache' in col.lower()][0]
 loneliness_col = [col for col in df_filtered.columns if 'loneliness' in col.lower()][0]
 gender_col = [col for col in df_filtered.columns if 'gender' in col.lower()][0]
 
-1. Tabellarische Übersicht (Mittelwerte und Standardabweichungen nach Geschlecht)
 grouped_stats = df_filtered.groupby(gender_col)[[anxiety_col, headache_col, loneliness_col]].agg(['mean', 'std']).round(3)
 print("Tabellarischer Vergleich (Mittelwert & Standardabweichung):")
 display(grouped_stats)
 
-2. Daten für das Diagramm vorbereiten
 df_melted = df_filtered.melt(id_vars=[gender_col], value_vars=[anxiety_col, headache_col, loneliness_col],
                              var_name='Indikator', value_name='Ausprägung')
 
-3. Diagramm erstellen
 plt.figure(figsize=(12, 6))
 sns.barplot(x='Indikator', y='Ausprägung', hue=gender_col, data=df_melted, palette='muted', errorbar='ci')
 plt.title('Vergleich von Stressindikatoren zwischen weiblichen und männlichen Studierenden (95% CI)')
 plt.ylabel('Durchschnittliche Ausprägung')
+plt.xlabel('Stressindikator')
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+plt.tight_layout()
+plt.show()
 
+stress_exp_col = [col for col in df_filtered.columns if 'stress_experience' in col.lower() or 'stress_level' in col.lower() or 'stress' in col.lower()][0]
 
-
-from sklearn.linear_model import LinearRegression
-from sklearn.feature_selection import f_regression
-
-Zielvariable
 y = df_filtered[stress_exp_col]
 
-Prädiktoren auswählen (akademisch, physisch, sozial)
-Wir wählen eine breite Palette an Features aus dem Datensatz aus
-features = [col for col in df_filtered.select_dtypes(include=[np.number]).columns if col != stress_exp_col and col != 'gender' and col != 'age']
+features = [col for col in df_filtered.select_dtypes(include=[np.number]).columns if col != stress_exp_col and col != gender_column and col != age_column]
 X = df_filtered[features]
 
-Lineares Regressionsmodell fitten
 model = LinearRegression()
 model.fit(X, y)
 
-Ergebnisse zusammenfassen
 r_sq = model.score(X, y)
 coefficients = pd.DataFrame({
     'Faktor': features,
@@ -140,7 +121,6 @@ print(f"Bestimmtheitsmaß (R² - Erklärte Varianz): {r_sq:.3f} (entspricht {r_s
 print("\nEinflussreichste Faktoren im Regressionsmodell:")
 display(coefficients.round(4))
 
-Diagramm der Feature-Importances (Koeffizienten)
 plt.figure(figsize=(12, 8))
 sns.barplot(x='Koeffizient (Gewichtung)', y='Faktor', data=coefficients, palette='viridis')
 plt.title(f'Einfluss der Faktoren auf das Stressempfinden (Erklärte Varianz R² = {r_sq:.3f})')
@@ -149,33 +129,19 @@ plt.ylabel('Faktor')
 plt.grid(axis='x', linestyle='--', alpha=0.5)
 plt.tight_layout()
 plt.show()
-plt.xlabel('Stressindikator')
-plt.grid(axis='y', linestyle='--', alpha=0.7)
-plt.tight_layout()
-plt.show()
 
-
-Identifikation relevanter Spalten
-Häuslich/Sozial: family_conflicts, peer_pressure
-Universitär: academic_conflicts, study_load, class_attendance
-Allgemeines Stressempfinden: stress_experience
-stress_exp_col = [col for col in df_filtered.columns if 'stress_experience' in col.lower()][0]
-
-Wir wählen repräsentative Variablen aus
 home_env_cols = [col for col in df_filtered.columns if 'family' in col.lower() or 'home' in col.lower()]
 uni_env_cols = [col for col in df_filtered.columns if 'academic' in col.lower() or 'study' in col.lower() or 'class' in col.lower()]
 
 all_env_cols = home_env_cols + uni_env_cols
 
-1. Korrelationsmatrix mit dem allgemeinen Stressempfinden
-correlations = df_filtered[all_env_cols + [stress_exp_col]].corr()[stress_exp_col].drop(stress_exp_col).to_frame()
+correlations = df_filtered[all_env_cols + [stress_exp_col]].corr()[[stress_exp_col]].drop(stress_exp_col)
 correlations.columns = ['Korrelation mit allgemeinem Stress']
 correlations = correlations.sort_values(by='Korrelation mit allgemeinem Stress', ascending=False)
 
 print("Einfluss der Umfelder auf das Stressempfinden (Korrelationskoeffizienten):")
 display(correlations.round(3))
 
-2. Diagramm erstellen
 plt.figure(figsize=(10, 6))
 sns.heatmap(df_filtered[all_env_cols + [stress_exp_col]].corr()[[stress_exp_col]].sort_values(by=stress_exp_col, ascending=False),
             annot=True, cmap='coolwarm', vmin=-1, vmax=1, fmt=".3f")
@@ -183,32 +149,20 @@ plt.title('Korrelation von häuslichen & universitären Faktoren mit allgemeinem
 plt.tight_layout()
 plt.show()
 
-
-
-
-from sklearn.preprocessing import StandardScaler
-from sklearn.cluster import KMeans
-from sklearn.decomposition import PCA
-
-1. Daten standardisieren (nur numerische Features)
 features_to_cluster = df_filtered.select_dtypes(include=[np.number]).columns
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(df_filtered[features_to_cluster].dropna())
 
-2. K-Means Clustering durchführen (wir definieren testweise 3 Cluster / Typen)
 kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
 clusters = kmeans.fit_predict(X_scaled)
 
-Cluster zu den gefilterten Daten hinzufügen
 df_clustered = df_filtered.dropna(subset=features_to_cluster).copy()
 df_clustered['Cluster'] = clusters
 
-3. Tabellarische Übersicht der Cluster-Profile (Mittelwerte der Kernindikatoren)
 cluster_profile = df_clustered.groupby('Cluster')[features_to_cluster].mean().round(2)
 print("Mittelwerte der Stressindikatoren je identifiziertem Studierenden-Typ (Cluster):")
 display(cluster_profile)
 
-4. Visualisierung der Cluster mittels Hauptkomponentenanalyse (PCA zur Dimensionsreduktion auf 2D)
 pca = PCA(n_components=2)
 X_pca = pca.fit_transform(X_scaled)
 df_clustered['PCA 1'] = X_pca[:, 0]
@@ -222,4 +176,3 @@ plt.ylabel('Hauptkomponente 2')
 plt.grid(True, linestyle='--', alpha=0.5)
 plt.tight_layout()
 plt.show()
-
