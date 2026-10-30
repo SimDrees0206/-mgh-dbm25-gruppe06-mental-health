@@ -109,6 +109,46 @@ plt.figure(figsize=(12, 6))
 sns.barplot(x='Indikator', y='Ausprägung', hue=gender_col, data=df_melted, palette='muted', errorbar='ci')
 plt.title('Vergleich von Stressindikatoren zwischen weiblichen und männlichen Studierenden (95% CI)')
 plt.ylabel('Durchschnittliche Ausprägung')
+
+
+
+from sklearn.linear_model import LinearRegression
+from sklearn.feature_selection import f_regression
+
+Zielvariable
+y = df_filtered[stress_exp_col]
+
+Prädiktoren auswählen (akademisch, physisch, sozial)
+Wir wählen eine breite Palette an Features aus dem Datensatz aus
+features = [col for col in df_filtered.select_dtypes(include=[np.number]).columns if col != stress_exp_col and col != 'gender' and col != 'age']
+X = df_filtered[features]
+
+Lineares Regressionsmodell fitten
+model = LinearRegression()
+model.fit(X, y)
+
+Ergebnisse zusammenfassen
+r_sq = model.score(X, y)
+coefficients = pd.DataFrame({
+    'Faktor': features,
+    'Koeffizient (Gewichtung)': model.coef_
+})
+coefficients['Absoluter Einfluss'] = coefficients['Koeffizient (Gewichtung)'].abs()
+coefficients = coefficients.sort_values(by='Absoluter Einfluss', ascending=False).reset_index(drop=True)
+
+print(f"Bestimmtheitsmaß (R² - Erklärte Varianz): {r_sq:.3f} (entspricht {r_sq*100:.1f}% der Varianz)")
+print("\nEinflussreichste Faktoren im Regressionsmodell:")
+display(coefficients.round(4))
+
+Diagramm der Feature-Importances (Koeffizienten)
+plt.figure(figsize=(12, 8))
+sns.barplot(x='Koeffizient (Gewichtung)', y='Faktor', data=coefficients, palette='viridis')
+plt.title(f'Einfluss der Faktoren auf das Stressempfinden (Erklärte Varianz R² = {r_sq:.3f})')
+plt.xlabel('Regressionskoeffizient')
+plt.ylabel('Faktor')
+plt.grid(axis='x', linestyle='--', alpha=0.5)
+plt.tight_layout()
+plt.show()
 plt.xlabel('Stressindikator')
 plt.grid(axis='y', linestyle='--', alpha=0.7)
 plt.tight_layout()
@@ -142,5 +182,8 @@ sns.heatmap(df_filtered[all_env_cols + [stress_exp_col]].corr()[[stress_exp_col]
 plt.title('Korrelation von häuslichen & universitären Faktoren mit allgemeinem Stress')
 plt.tight_layout()
 plt.show()
+
+
+
 
 
