@@ -186,4 +186,40 @@ plt.show()
 
 
 
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
+
+1. Daten standardisieren (nur numerische Features)
+features_to_cluster = df_filtered.select_dtypes(include=[np.number]).columns
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(df_filtered[features_to_cluster].dropna())
+
+2. K-Means Clustering durchführen (wir definieren testweise 3 Cluster / Typen)
+kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
+clusters = kmeans.fit_predict(X_scaled)
+
+Cluster zu den gefilterten Daten hinzufügen
+df_clustered = df_filtered.dropna(subset=features_to_cluster).copy()
+df_clustered['Cluster'] = clusters
+
+3. Tabellarische Übersicht der Cluster-Profile (Mittelwerte der Kernindikatoren)
+cluster_profile = df_clustered.groupby('Cluster')[features_to_cluster].mean().round(2)
+print("Mittelwerte der Stressindikatoren je identifiziertem Studierenden-Typ (Cluster):")
+display(cluster_profile)
+
+4. Visualisierung der Cluster mittels Hauptkomponentenanalyse (PCA zur Dimensionsreduktion auf 2D)
+pca = PCA(n_components=2)
+X_pca = pca.fit_transform(X_scaled)
+df_clustered['PCA 1'] = X_pca[:, 0]
+df_clustered['PCA 2'] = X_pca[:, 1]
+
+plt.figure(figsize=(11, 7))
+sns.scatterplot(x='PCA 1', y='PCA 2', hue='Cluster', data=df_clustered, palette='Set1', alpha=0.7, style='Cluster')
+plt.title('Identifizierte Studierenden-Typen (PCA 2D-Projektion der Cluster)')
+plt.xlabel('Hauptkomponente 1')
+plt.ylabel('Hauptkomponente 2')
+plt.grid(True, linestyle='--', alpha=0.5)
+plt.tight_layout()
+plt.show()
 
